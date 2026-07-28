@@ -1,8 +1,9 @@
-﻿using BoneLib.BoneMenu;
-using Il2CppSLZ.Bonelab;
+﻿using Il2CppSLZ.Bonelab;
 using Il2CppSLZ.Marrow;
 using MelonLoader;
 using UnityEngine;
+using Il2CppSLZ.Marrow.Interaction;
+using MenuHelper;
 
 [assembly: MelonInfo(typeof(DevToolsHider.DevToolsHiderMod), "DevToolsHider", "0.0.1", "triangle", null)]
 [assembly: MelonGame("Stress Level Zero", "BONELAB")]
@@ -13,7 +14,10 @@ namespace DevToolsHider
     {
         public static MelonPreferences_Category DevToolsHider_Category;
         public static MelonPreferences_Entry<bool> DevToolsHidden;
-        public const Int32 TargetLayer = 11; // Layer 11 is the target because it is unused in BONELAB as of Patch 6
+        public static MelonPreferences_Entry<bool> EnableInFlatPlayer;
+        public const Int32 DynamicLayer = 10; // Layer 10, identified as Dynamic, is the layer intended for dynamic object collision in BONELAB as of Patch 6. This isn't typically used for rendering, but it's possible that the user placed colliders on the renderers
+        public const Int32 HideableLayer = 11; // Layer 11 is the target for hiding objects because it is unused in BONELAB as of Patch 6
+        public static bool IsFlatPlayer;
         
         public override void OnInitializeMelon()
         {
@@ -23,23 +27,90 @@ namespace DevToolsHider
 
             // Init BoneMenu elements
 
-            BoneLib.BoneMenu.Page BoneMenu_MainPage = BoneLib.BoneMenu.Page.Root.CreatePage("Dev Tools Hider", Color.Lerp(Color.blue, Color.white, 0.7f)); // Light blue? maybe
+            BoneLib.BoneMenu.Page BoneMenu_MainPage = BoneLib.BoneMenu.Page.Root.CreatePage("Dev Tools Hider", Color.cyan);
             {
-                BoneMenu_MainPage.CreateBoolPref("Enabled", Color.cyan, ref DevToolsHidden, UpdateSpectatorCameraSettings, prefDefaultValue: false);
+                if (!BoneLib.HelperMethods.IsAndroid()) // These settings are useless on Quest as it doesn't have a spectator camera
+                {
+                    BoneMenu_MainPage.CreateBoolPref("Hide in Spectator", Color.cyan, ref DevToolsHidden, UpdateSpectatorCameraSettings, prefDefaultValue: true);
+                    BoneMenu_MainPage.CreateBoolPref("Hide in FlatPlayer Spectator", Color.cyan, ref EnableInFlatPlayer, UpdateSpectatorCameraSettings, prefDefaultValue: false, tooltip: "Hide in Spectator must be enabled for this to have any effect.");
+                }
+                BoneMenu_MainPage.CreateFunction("Toggle Held Items Visibility", Color.cyan, ToggleHeldItemVisibility);
+                BoneMenu_MainPage.CreateFunction("Toggle Held Camera Mask", Color.cyan, ToggleHeldCameraMask);
             }
             LoggerInstance.Msg("Initialized.");
         }
+        public override void OnLateInitializeMelon()
+        {
+            // Check for FlatPlayer
+            if (FindMelon("FlatPlayer", "LlamasHere") != null)
+            {
+                IsFlatPlayer = true;
+            }
+            else
+            {
+                IsFlatPlayer = false;
+            }
+        }
+
         // BoneMenu methods
+        public static void ToggleHeldItemVisibility()
+        {
+            int Target;
+            GameObject[] HandItems = [BoneLib.Player.GetObjectInHand(BoneLib.Player.LeftHand), BoneLib.Player.GetObjectInHand(BoneLib.Player.RightHand)];
+            foreach (var HandItemElement in HandItems)
+            {
+                if (HandItemElement != null && HandItemElement.GetComponentInParent<MarrowBody>() != null)
+                {
+                    var Renderers = HandItemElement.GetComponentInParent<MarrowEntity>(true).GetComponentsInChildren<Renderer>(true);
+                    if (Renderers.Length != 0 && Renderers.First().gameObject.layer != HideableLayer)
+                    {
+                        Target = HideableLayer;
+                    }
+                    else
+                    {
+                        Target = DynamicLayer;
+                    }
+                    foreach (Renderer RendererElement in Renderers)
+                    {
+                        RendererElement.gameObject.layer = Target;
+                    }
+                }
+            }
+        }
+        public static void ToggleHeldCameraMask()
+        {
+            GameObject[] HandItems = [BoneLib.Player.GetObjectInHand(BoneLib.Player.LeftHand), BoneLib.Player.GetObjectInHand(BoneLib.Player.RightHand)];
+            foreach (var HandItemElement in HandItems)
+            {
+                if (HandItemElement != null && HandItemElement.GetComponentInParent<MarrowBody>() != null)
+                {
+                    foreach (var ItemCamera in HandItemElement.GetComponentInParent<MarrowEntity>(true).GetComponentsInChildren<Camera>())
+                    {
+                        var CameraCullingMask = ItemCamera.cullingMask;
+                        if (RemoveLayer(ItemCamera.cullingMask, HideableLayer) == ItemCamera.cullingMask)
+                        {
+                            ItemCamera.cullingMask = ShowLayer(ItemCamera.cullingMask, HideableLayer);
+                        }
+                        else
+                        {
+                            ItemCamera.cullingMask = RemoveLayer(ItemCamera.cullingMask, HideableLayer);
+                        }
+                    }
+                }
+            }
+        }
+
         public static void UpdateSpectatorCameraSettings(bool value)
         {
             var currentCamera = GameObject.Find("/GameplaySystems [0]/DisabledContainer/Spectator Camera/Spectator Camera").GetComponent<Camera>();
-            if (value)
+            if (DevToolsHidden.Value && (!IsFlatPlayer || EnableInFlatPlayer.Value))
             {
-                currentCamera.cullingMask = RemoveLayer(currentCamera.cullingMask, TargetLayer);
+                currentCamera.cullingMask = RemoveLayer(currentCamera.cullingMask, HideableLayer);
                 return;
             }
-            currentCamera.cullingMask = ShowLayer(currentCamera.cullingMask, TargetLayer);
+            currentCamera.cullingMask = ShowLayer(currentCamera.cullingMask, HideableLayer);
         }
+
         public static int ShowLayer(int mask, int layer)
         {
             return mask |= (1 << layer);
@@ -47,10 +118,6 @@ namespace DevToolsHider
         public static int RemoveLayer(int mask, int layer)
         {
             return mask &= ~(1 << layer);
-        }
-        public static void SavePreferences()
-        {
-            DevToolsHider_Category.SaveToFile(false);
         }
     }
 
@@ -77,7 +144,7 @@ namespace DevToolsHider
             var Renderers = __instance.gameObject.GetComponentsInChildren<Renderer>(true);
             foreach (Renderer element in Renderers)
             {
-                element.gameObject.layer = DevToolsHiderMod.TargetLayer;
+                element.gameObject.layer = DevToolsHiderMod.HideableLayer;
             }
         }
 
@@ -86,9 +153,10 @@ namespace DevToolsHider
         [HarmonyLib.HarmonyPostfix]
         public static void OnLoadedGameplaySystems(RigScreenOptions __instance)
         {
-            DevToolsHiderMod.UpdateSpectatorCameraSettings(DevToolsHiderMod.DevToolsHidden.Value);
+            if (!DevToolsHiderMod.IsFlatPlayer || DevToolsHiderMod.EnableInFlatPlayer.Value)
+            {
+                DevToolsHiderMod.UpdateSpectatorCameraSettings(DevToolsHiderMod.DevToolsHidden.Value);
+            }
         }
-
-
     }
 }
