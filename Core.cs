@@ -15,10 +15,17 @@ namespace DevToolsHider
         public static MelonPreferences_Category DevToolsHider_Category;
         public static MelonPreferences_Entry<bool> DevToolsHidden;
         public static MelonPreferences_Entry<bool> EnableInFlatPlayer;
-        public const Int32 DynamicLayer = 10; // Layer 10, identified as Dynamic, is the layer intended for dynamic object collision in BONELAB as of Patch 6. This isn't typically used for rendering, but it's possible that the user placed colliders on the renderers
-        public const Int32 HideableLayer = 11; // Layer 11 is the target for hiding objects because it is unused in BONELAB as of Patch 6
+        public const Int32 DefaultLayer = 0;         // Layer 0, identified as Default, is the default layer and is generally used for level collision
+        public const Int32 FixtureLayer = 6;         // Layer 6, identified as Fixture, is the layer for fixtures (airlock doors, buttons, etc)
+        public const Int32 PlayerLayer = 8;          // Layer 8, identified as Player, is the layer for the player's collision
+        public const Int32 DynamicLayer = 10;        // Layer 10, identified as Dynamic, is the layer intended for dynamic object collision in BONELAB as of Patch 6. This isn't typically used for rendering, but it's possible that the user placed colliders on the renderers
+        public const Int32 HideableLayer = 11;       // Layer 11 is the target for hiding objects
+        public const Int32 EnemyCollidersLayer = 12; // Layer 12, identified as EnemyColliders, is the layer used for NPC collision
+        public const Int32 FootballLayer = 24;       // Layer 24, identified as Football, is the layer used for the player locosphere
         public static bool IsFlatPlayer;
+        public static Color SpawnGunBlue = new(0.06432372f, 0.7570404f, 0.856f, 1f);
         
+
         public override void OnInitializeMelon()
         {
             // Init MelonLoader preferences
@@ -27,16 +34,23 @@ namespace DevToolsHider
 
             // Init BoneMenu elements
 
-            BoneLib.BoneMenu.Page BoneMenu_MainPage = BoneLib.BoneMenu.Page.Root.CreatePage("Dev Tools Hider", Color.cyan);
+            BoneLib.BoneMenu.Page BoneMenu_MainPage = BoneLib.BoneMenu.Page.Root.CreatePage("Dev Tools Hider", SpawnGunBlue);
             {
-                if (!BoneLib.HelperMethods.IsAndroid()) // These settings are useless on Quest as it doesn't have a spectator camera
+                BoneMenu_MainPage.CreateBoolPref("Hide in Spectator", SpawnGunBlue, ref DevToolsHidden, UpdateSpectatorCameraSettings, prefDefaultValue: true);
+                if (!BoneLib.HelperMethods.IsAndroid()) // This settings are useless on Quest as it doesn't have a spectator camera
                 {
-                    BoneMenu_MainPage.CreateBoolPref("Hide in Spectator", Color.cyan, ref DevToolsHidden, UpdateSpectatorCameraSettings, prefDefaultValue: true);
-                    BoneMenu_MainPage.CreateBoolPref("Hide in FlatPlayer Spectator", Color.cyan, ref EnableInFlatPlayer, UpdateSpectatorCameraSettings, prefDefaultValue: false, tooltip: "Hide in Spectator must be enabled for this to have any effect.");
+                    BoneMenu_MainPage.CreateBoolPref("Hide in FlatPlayer Spectator", SpawnGunBlue, ref EnableInFlatPlayer, UpdateSpectatorCameraSettings, prefDefaultValue: false, tooltip: "Hide in Spectator must be enabled for this to have any effect.");
                 }
-                BoneMenu_MainPage.CreateFunction("Toggle Held Items Visibility", Color.cyan, ToggleHeldItemVisibility);
-                BoneMenu_MainPage.CreateFunction("Toggle Held Camera Mask", Color.cyan, ToggleHeldCameraMask);
+                BoneMenu_MainPage.CreateFunction("Toggle Held Items Visibility", SpawnGunBlue, ToggleHeldItemVisibility);
+                BoneMenu_MainPage.CreateFunction("Toggle Held Camera Mask", SpawnGunBlue, ToggleHeldCameraMask);
             }
+            Physics.IgnoreLayerCollision(HideableLayer, DefaultLayer, false);
+            Physics.IgnoreLayerCollision(HideableLayer, FixtureLayer, false);
+            Physics.IgnoreLayerCollision(HideableLayer, PlayerLayer, false);
+            Physics.IgnoreLayerCollision(HideableLayer, DynamicLayer, false);
+            Physics.IgnoreLayerCollision(HideableLayer, HideableLayer, false);
+            Physics.IgnoreLayerCollision(HideableLayer, EnemyCollidersLayer, false);
+            Physics.IgnoreLayerCollision(HideableLayer, FootballLayer, false);
             LoggerInstance.Msg("Initialized.");
         }
         public override void OnLateInitializeMelon()
@@ -77,7 +91,7 @@ namespace DevToolsHider
                 }
             }
         }
-        public static void ToggleHeldCameraMask()
+        public static void ToggleHeldCameraMask() // Toggles the mask found under a held camera device
         {
             GameObject[] HandItems = [BoneLib.Player.GetObjectInHand(BoneLib.Player.LeftHand), BoneLib.Player.GetObjectInHand(BoneLib.Player.RightHand)];
             foreach (var HandItemElement in HandItems)
@@ -124,7 +138,7 @@ namespace DevToolsHider
     [HarmonyLib.HarmonyPatch]
     public class Patches
     {
-        // Switch layers
+        // Switch layers of Spawn Gun and Nimbus Gun renderers
         [HarmonyLib.HarmonyPatch(typeof(SpawnGun), "Start")]
         [HarmonyLib.HarmonyPostfix]
         public static void SetSpawnGunLayers(SpawnGun __instance) 
@@ -148,7 +162,7 @@ namespace DevToolsHider
             }
         }
 
-        // Update spectator camera setting on load
+        // Update spectator camera setting on load. This is done instead of hooking level load because this caused an error, possibly being called before GameplaySystems being spawned?
         [HarmonyLib.HarmonyPatch(typeof(RigScreenOptions), "Start")]
         [HarmonyLib.HarmonyPostfix]
         public static void OnLoadedGameplaySystems(RigScreenOptions __instance)
