@@ -5,8 +5,8 @@ using UnityEngine;
 using Il2CppSLZ.Marrow.Interaction;
 using MenuHelper;
 
-[assembly: MelonInfo(typeof(DevToolsHider.DevToolsHiderMod), "DevToolsHider", "1.0.0", "triangle", null)]
-[assembly: MelonGame("Stress Level Zero", "BONELAB")]
+[assembly: MelonInfo(typeof(DevToolsHider.DevToolsHiderMod), name:"DevToolsHider", version:"1.0.0", author:"triangle", downloadLink:"https://thunderstore.io/c/bonelab/p/triangle/InteractableSettings/")]
+[assembly: MelonGame(developer:"Stress Level Zero", name:"BONELAB")]
 
 namespace DevToolsHider
 {

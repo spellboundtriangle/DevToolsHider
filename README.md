@@ -12,7 +12,7 @@ It should be noted that this mod makes modifications to certain GameObjects, whi
 - The GameObject layer of Renderers found under the Spawn Gun and Nimbus Gun hierarchies (including those of mod equivalents) will be changed to Layer 11 (an unused layer in BONELAB)
 - The GameObject layer of player-selected individual objects' Renderers will be toggled between Layers 11 and 10 (the Dynamic layer)
 - The culling mask of cameras affected by the camera mask toggling function will disable or enable Layer 11 in the mask
-- Layer 10 is modified to collide with 0, 6, 8, 10, 11, 12, and 24, to reduce possibility of issues caused by Colliders being placed on Renderer GameObjects
+- Layer 11 is modified to collide with layers 6 and 11, to reduce possibility of issues caused by Colliders being placed on Renderer GameObjects
 
 ## Requirements
 - MelonLoader (v0.6.5+ recommended)

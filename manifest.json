@@ -1,0 +1,9 @@
+{	
+	"name": "DevToolsHider",
+	"version_number": "1.0.0",
+	"website_url": "https://github.com/spellboundtriangle/DevToolsHider",
+	"description": "Allows hiding Dev Tools or other objects in BONELAB",
+	"dependencies": [
+		"bonelib-BoneLib-3.2.1"
+	]
+}
