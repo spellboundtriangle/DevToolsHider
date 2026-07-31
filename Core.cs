@@ -5,7 +5,7 @@ using UnityEngine;
 using Il2CppSLZ.Marrow.Interaction;
 using MenuHelper;
 
-[assembly: MelonInfo(typeof(DevToolsHider.DevToolsHiderMod), "DevToolsHider", "0.0.1", "triangle", null)]
+[assembly: MelonInfo(typeof(DevToolsHider.DevToolsHiderMod), "DevToolsHider", "1.0.0", "triangle", null)]
 [assembly: MelonGame("Stress Level Zero", "BONELAB")]
 
 namespace DevToolsHider
@@ -15,16 +15,54 @@ namespace DevToolsHider
         public static MelonPreferences_Category DevToolsHider_Category;
         public static MelonPreferences_Entry<bool> DevToolsHidden;
         public static MelonPreferences_Entry<bool> EnableInFlatPlayer;
-        public const Int32 DefaultLayer = 0;         // Layer 0, identified as Default, is the default layer and is generally used for level collision
-        public const Int32 FixtureLayer = 6;         // Layer 6, identified as Fixture, is the layer for fixtures (airlock doors, buttons, etc)
-        public const Int32 PlayerLayer = 8;          // Layer 8, identified as Player, is the layer for the player's collision
+        public const Int32 FixtureLayer = 6;         // Layer 6, identified as Fixture, is the layer for fixtures (airlock doors, buttons, etc). Layer 11 does not collide with it by default.
         public const Int32 DynamicLayer = 10;        // Layer 10, identified as Dynamic, is the layer intended for dynamic object collision in BONELAB as of Patch 6. This isn't typically used for rendering, but it's possible that the user placed colliders on the renderers
         public const Int32 HideableLayer = 11;       // Layer 11 is the target for hiding objects
-        public const Int32 EnemyCollidersLayer = 12; // Layer 12, identified as EnemyColliders, is the layer used for NPC collision
-        public const Int32 FootballLayer = 24;       // Layer 24, identified as Football, is the layer used for the player locosphere
         public static bool IsFlatPlayer;
         public static Color SpawnGunBlue = new(0.06432372f, 0.7570404f, 0.856f, 1f);
-        
+
+        /*
+         * By default, according to my findings, layer 11 does not collide with:
+            1 - TransparentFX
+            2 - IgnoreRaycast
+            3 - ObserverTrigger
+            4 - Water
+            5 - UI
+            6 - Fixture
+            9 - NoCollide
+            11 - 
+            14 - 
+            16 - Decaverse
+            17 - Deciverse
+            18 - Socket
+            19 - Plug
+            20 - 
+            21 - PlayerAndNpc
+            22 - 
+            23 - FootballOnly
+            25 - NoFootball
+            26 - EntityTracker
+            27 - BeingTracker
+            28 - ObserverTracker
+            29 - EntityTrigger
+            30 - BeingTrigger
+            31 - Background
+
+         * Does collide with:
+            0 - Default
+            7 - 
+            8 - Player
+            10 - Dynamic
+            12 - EnemyColliders
+            13 - 
+            15 - Interactable
+            24 - Football
+
+        * Layer 11 does collide with the default BONELAB projectile spawnable and laser pointers
+        * Layer 11 can be world gripped
+
+        * As of now, only 6 and 11 are added to collision with 11.
+        */
 
         public override void OnInitializeMelon()
         {
@@ -37,20 +75,15 @@ namespace DevToolsHider
             BoneLib.BoneMenu.Page BoneMenu_MainPage = BoneLib.BoneMenu.Page.Root.CreatePage("Dev Tools Hider", SpawnGunBlue);
             {
                 BoneMenu_MainPage.CreateBoolPref("Hide in Spectator", SpawnGunBlue, ref DevToolsHidden, UpdateSpectatorCameraSettings, prefDefaultValue: true);
-                if (!BoneLib.HelperMethods.IsAndroid()) // This settings are useless on Quest as it doesn't have a spectator camera
+                if (!BoneLib.HelperMethods.IsAndroid()) // This setting are useless on Quest as it doesn't have a spectator camera
                 {
                     BoneMenu_MainPage.CreateBoolPref("Hide in FlatPlayer Spectator", SpawnGunBlue, ref EnableInFlatPlayer, UpdateSpectatorCameraSettings, prefDefaultValue: false, tooltip: "Hide in Spectator must be enabled for this to have any effect.");
                 }
                 BoneMenu_MainPage.CreateFunction("Toggle Held Items Visibility", SpawnGunBlue, ToggleHeldItemVisibility);
                 BoneMenu_MainPage.CreateFunction("Toggle Held Camera Mask", SpawnGunBlue, ToggleHeldCameraMask);
             }
-            Physics.IgnoreLayerCollision(HideableLayer, DefaultLayer, false);
             Physics.IgnoreLayerCollision(HideableLayer, FixtureLayer, false);
-            Physics.IgnoreLayerCollision(HideableLayer, PlayerLayer, false);
-            Physics.IgnoreLayerCollision(HideableLayer, DynamicLayer, false);
             Physics.IgnoreLayerCollision(HideableLayer, HideableLayer, false);
-            Physics.IgnoreLayerCollision(HideableLayer, EnemyCollidersLayer, false);
-            Physics.IgnoreLayerCollision(HideableLayer, FootballLayer, false);
             LoggerInstance.Msg("Initialized.");
         }
         public override void OnLateInitializeMelon()
